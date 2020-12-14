@@ -1,0 +1,98 @@
+captainVersion: 4
+services:
+    # zabbix-server
+    $$cap_appname:
+      depends_on:
+        - $$cap_appname-mariadb
+      image: zabbix/zabbix-server-mysql:alpine-$$cap_zabbix_version
+      restart: always
+      environment:
+          DB_SERVER_HOST: srv-captain--$$cap_appname-mariadb
+          DB_SERVER_PORT: "3306"
+          MYSQL_ROOT_PASSWORD:  $$cap_mariadb_root_pass
+          MYSQL_PASSWORD: $$cap_mariadb-pass
+          MYSQL_USER: $$cap_zabbix_user
+      ports:
+         - "10051:10051"
+      caproverExtra:
+            notExposeAsWebApp: 'true'
+    # MariaDB
+    $$cap_appname-mariadb:
+      image: mariadb:10.4
+      volumes:
+          - $$cap_appname-mariadb-data:/var/lib/mysql
+      restart: always
+      environment:
+          MYSQL_ROOT_PASSWORD: $$cap_mariadb_root_pass
+      caproverExtra:
+          notExposeAsWebApp: 'true'
+    ## Zabbix Web
+    $$cap_appname-web:
+      depends_on:
+        - $$cap_appname
+      image:  zabbix/zabbix-web-apache-mysql:alpine-$$cap_zabbix_version
+      restart: always
+      environment:
+          MYSQL_USER: $$cap_zabbix_user
+          MYSQL_PASSWORD: $$cap_mariadb-pass
+          DB_SERVER_HOST: srv-captain--$$cap_appname-mariadb
+          ZBX_SERVER_HOST: srv-captain--$$cap_appname
+          ZBX_SERVER_PORT: "10050"
+          ZBX_SERVER_NAME: $$cap_zabbix-server-name
+      ports:
+        - "8080:8080"
+        - "8089:8443"
+    $$cap_appname-agent:
+      depends_on:
+        - $$cap_appname
+      image: zabbix/zabbix-agent:alpine-latest
+      environment:
+          ZBX_HOSTNAME: $$cap_zabbix_agent_hostname
+          ZBX_SERVER_HOST: srv-captain--$$cap_appname
+      ports:
+        - "10050:10050"
+      caproverExtra:
+          notExposeAsWebApp: 'true'
+caproverOneClickApp:
+    variables:
+        - id: $$cap_zabbix_version
+          label: Zabbix Server Version
+          defaultValue: 'latest'
+          description: Checkout their docker page for the valid tags https://hub.docker.com/r/zabbix/zabbix-server-mysql/tags
+          validRegex: /^([^\s^\/])+$/
+        - id: $$cap_zabbix_user
+          label: Zabbix DB User
+          defaultValue: 'zabbix'
+          description: 'Username for zabbix DB'
+        - id: $$cap_mariadb-pass
+          label: Zabbix DB Password
+          defaultValue: ''
+          description: 'Your super secret Password for zabbix DB'
+          validRegex: /^([^\s^\/])+$/
+        - id: $$cap_mariadb-db-name
+          label: Zabbix database name
+          defaultValue: 'zabbix'
+          description: 'Username for zabbix DB'
+        - id:  $$cap_mariadb_root_pass
+          label: MariaDB Root Password
+          defaultValue: ''
+          description: Root passwrod for mariadb
+          validRegex: /^([^\s^\/])+$/
+        - id: $$cap_zabbix-server-name
+          label: Zabbix Server Name
+          description: Zabbix installation name in right top corner of the web interface
+          defaultValue: ''
+        - id: $$cap_zabbix_agent_hostname
+          label: Zabbix Agent Host Name
+          defaultValue: 'srv-captain--$$cap_appname'
+          description: https://hub.docker.com/r/zabbix/zabbix-agent
+    instructions:
+        start: >-
+            zabbix is a monitoring tool
+        end: >-
+            Aaaand you're done! 😄
+            Your service is available at http://$$cap_appname.$$cap_root_domain
+    displayName: 'Zabbix'
+    isOfficial: true
+    description: Zabbix Opensource monitoring tools
+    documentation: Taken from https://www.zabbix.com/documentation/current/
